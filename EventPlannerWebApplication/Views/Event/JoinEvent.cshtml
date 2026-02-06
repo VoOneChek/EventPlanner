@@ -1,0 +1,66 @@
+﻿@using EventPlannerWebApplication.Models
+@{
+    var ev = ViewBag.Event as Event;
+    string name = ViewBag.ParticipantName;
+}
+
+<div class="container mt-5">
+    <div class="card p-4 shadow">
+        <h2>@ev!.Title</h2>
+
+        <form method="post" action="/Event/ConfirmJoin">
+            <input type="hidden" name="eventId" value="@ev.Id" />
+            <input type="hidden" name="participantName" value="@name" />
+
+            @if (ev.IsFixedDate)
+            {
+                var fixedInterval = ev.Participants
+                .SelectMany(p => p.AvailabilityIntervals)
+                .FirstOrDefault();
+
+                <p><b>Дата события:</b> @fixedInterval!.StartTime.ToLocalTime()</p>
+
+                <div class="d-flex justify-content-between mt-3">
+                    <button name="actionType" value="agree" class="btn btn-success">Согласен</button>
+                    <button name="actionType" value="decline" class="btn btn-danger">Отказаться</button>
+                    <button name="actionType" value="cancel" class="btn btn-secondary">Отмена</button>
+                </div>
+            }
+            else
+            {
+                <label>Ваши возможные интервалы:</label>
+                <div id="flexibleContainer"></div>
+
+                <button type="button" onclick="addInterval()" class="btn btn-outline-primary mt-2">
+                    + Добавить интервал
+                </button>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <button name="actionType" value="submit" class="btn btn-success">Отправить</button>
+                    <button name="actionType" value="cancel" class="btn btn-secondary">Отмена</button>
+                </div>
+            }
+
+            @Html.ValidationSummary()
+        </form>
+    </div>
+</div>
+
+<script>
+    function addInterval(){
+     const container=document.getElementById("flexibleContainer");
+     container.insertAdjacentHTML("beforeend",`
+      <div class="row mt-2 interval-row">
+        <div class="col">
+          <input type="datetime-local" name="flexibleStart" required class="form-control"/>
+        </div>
+        <div class="col">
+          <input type="datetime-local" name="flexibleEnd" required class="form-control"/>
+        </div>
+        <div class="col-auto">
+          <button type="button" onclick="this.closest('.interval-row').remove()" class="btn btn-outline-danger">✖</button>
+        </div>
+      </div>
+     `);
+    }
+</script>

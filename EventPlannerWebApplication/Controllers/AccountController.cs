@@ -109,5 +109,12 @@ namespace EventPlannerWebApplication.Controllers
             return Convert.ToBase64String(
                 sha.ComputeHash(Encoding.UTF8.GetBytes(password)));
         }
+
+        public IActionResult Logout()
+        {
+            HttpContext.Session.Clear();
+
+            return RedirectToAction("Index", "Home");
+        }
     }
 }

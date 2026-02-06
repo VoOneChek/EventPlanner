@@ -3,6 +3,7 @@ using System;
 using EventPlannerWebApplication.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EventPlannerWebApplication.Data.Migrations
 {
     [DbContext(typeof(EventPlannerDbContext))]
-    partial class EventPlannerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260206172559_Add IsAgreed from the Participant")]
+    partial class AddIsAgreedfromtheParticipant
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

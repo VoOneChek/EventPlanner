@@ -28,6 +28,10 @@ namespace EventPlannerWebApplication.Data
                 .HasIndex(e => e.OwnerCode)
                 .IsUnique();
 
+            modelBuilder.Entity<Participant>()
+                .HasIndex(p => new { p.EventId, p.UserId })
+                .IsUnique();
+
             modelBuilder.Entity<AvailabilityInterval>(entity =>
             {
                 entity.ToTable(tb => tb.HasCheckConstraint(

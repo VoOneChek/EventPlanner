@@ -3,6 +3,7 @@ using System;
 using EventPlannerWebApplication.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EventPlannerWebApplication.Data.Migrations
 {
     [DbContext(typeof(EventPlannerDbContext))]
-    partial class EventPlannerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260206152951_Delete Fixed Date")]
+    partial class DeleteFixedDate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -33,6 +36,9 @@ namespace EventPlannerWebApplication.Data.Migrations
                     b.Property<DateTime>("EndTime")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("EventId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("ParticipantId")
                         .HasColumnType("integer");
 
@@ -40,6 +46,8 @@ namespace EventPlannerWebApplication.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventId");
 
                     b.HasIndex("ParticipantId");
 
@@ -105,22 +113,13 @@ namespace EventPlannerWebApplication.Data.Migrations
                     b.Property<int>("EventId")
                         .HasColumnType("integer");
 
-                    b.Property<bool?>("IsAgreed")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int?>("UserId")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("EventId", "UserId")
-                        .IsUnique();
+                    b.HasIndex("EventId");
 
                     b.ToTable("Participants");
                 });
@@ -152,22 +151,28 @@ namespace EventPlannerWebApplication.Data.Migrations
 
             modelBuilder.Entity("EventPlannerWebApplication.Models.AvailabilityInterval", b =>
                 {
+                    b.HasOne("EventPlannerWebApplication.Models.Event", "Event")
+                        .WithMany("AvailabilityIntervals")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("EventPlannerWebApplication.Models.Participant", "Participant")
                         .WithMany("AvailabilityIntervals")
                         .HasForeignKey("ParticipantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Event");
+
                     b.Navigation("Participant");
                 });
 
             modelBuilder.Entity("EventPlannerWebApplication.Models.Event", b =>
                 {
-                    b.HasOne("EventPlannerWebApplication.Models.User", "User")
+                    b.HasOne("EventPlannerWebApplication.Models.User", null)
                         .WithMany("CreatedEvents")
                         .HasForeignKey("UserId");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("EventPlannerWebApplication.Models.Participant", b =>
@@ -178,17 +183,13 @@ namespace EventPlannerWebApplication.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("EventPlannerWebApplication.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId");
-
                     b.Navigation("Event");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("EventPlannerWebApplication.Models.Event", b =>
                 {
+                    b.Navigation("AvailabilityIntervals");
+
                     b.Navigation("Participants");
                 });
 
