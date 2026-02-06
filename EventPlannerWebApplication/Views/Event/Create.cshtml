@@ -1,0 +1,155 @@
+﻿@{
+    ViewData["Title"] = "Создание события";
+}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <div class="feature-icon bg-primary bg-opacity-10 mb-3">
+                            <i class="bi bi-plus-circle text-primary" style="font-size: 2rem;"></i>
+                        </div>
+                        <h2 class="fw-bold">Создать новое событие</h2>
+                        <p class="text-muted">Заполните информацию о вашей встрече</p>
+                    </div>
+
+                    <form method="post">
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Название события</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-chat-square-text"></i>
+                                </span>
+                                <input type="text" name="title" class="form-control" placeholder="Например: Встреча команды" required>
+                            </div>
+                        </div>
+
+                        <!-- Выбор типа времени -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Тип планирования времени</label>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="card h-100 border-3" id="fixedTimeCard">
+                                        <div class="card-body text-center p-4">
+                                            <div class="mb-3">
+                                                <i class="bi bi-calendar-check text-primary" style="font-size: 2.5rem;"></i>
+                                            </div>
+                                            <h5 class="fw-bold mb-2">Фиксированное время</h5>
+                                            <p class="small text-muted mb-3">Событие в конкретное время</p>
+                                            <div class="form-check d-flex justify-content-center">
+                                                <input class="form-check-input me-2" type="radio" name="timeType" id="fixedTime" value="fixed" checked>
+                                                <label class="form-check-label fw-semibold" for="fixedTime">
+                                                    Выбрать
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card h-100 border-3" id="flexibleTimeCard">
+                                        <div class="card-body text-center p-4">
+                                            <div class="mb-3">
+                                                <i class="bi bi-clock text-success" style="font-size: 2.5rem;"></i>
+                                            </div>
+                                            <h5 class="fw-bold mb-2">Гибкое время</h5>
+                                            <p class="small text-muted mb-3">Участники указывают удобное время</p>
+                                            <div class="form-check d-flex justify-content-center">
+                                                <input class="form-check-input me-2" type="radio" name="timeType" id="flexibleTime" value="flexible">
+                                                <label class="form-check-label fw-semibold" for="flexibleTime">
+                                                    Выбрать
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Фиксированное время (показывается по умолчанию) -->
+                        <div id="fixedTimeSection">
+                            <h5 class="fw-bold mb-3">
+                                <i class="bi bi-calendar-event me-2"></i>Фиксированное время события
+                            </h5>
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Дата события</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="bi bi-calendar"></i>
+                                        </span>
+                                        <input type="date" name="fixedDate" class="form-control" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Время начала</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="bi bi-clock"></i>
+                                        </span>
+                                        <input type="time" name="fixedStartTime" class="form-control" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold">Продолжительность</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-stopwatch"></i>
+                                    </span>
+                                    <select class="form-select" name="fixedDuration">
+                                        <option value="30">30 минут</option>
+                                        <option value="60" selected>1 час</option>
+                                        <option value="90">1.5 часа</option>
+                                        <option value="120">2 часа</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Гибкое время (скрыто по умолчанию) -->
+                        <div id="flexibleTimeSection" style="display: none;">
+                            <h5 class="fw-bold mb-3">
+                                <i class="bi bi-calendar-range me-2"></i>Диапазон для планирования
+                            </h5>
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Дата начала</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="bi bi-calendar-plus"></i>
+                                        </span>
+                                        <input type="date" name="flexibleStartDate" class="form-control">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Дата окончания</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="bi bi-calendar-minus"></i>
+                                        </span>
+                                        <input type="date" name="flexibleEndDate" class="form-control">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Участники смогут указать удобное время в этом диапазоне
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg py-3">
+                                <i class="bi bi-check-circle me-2"></i>Создать событие
+                            </button>
+                            <a href="/Home/Menu" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle me-2"></i>Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

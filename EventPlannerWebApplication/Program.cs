@@ -15,6 +15,9 @@ builder.Services.AddDbContext<EventPlannerDbContext>(options =>
     options.UseNpgsql(connectionString,
         b => b.MigrationsAssembly(typeof(EventPlannerDbContext).Assembly.FullName)));
 
+builder.Services.AddSession();
+builder.Services.AddScoped<EmailService>();
+
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
@@ -26,6 +29,8 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthorization();
+
+app.UseSession();
 
 app.MapControllerRoute(
     name: "default",
