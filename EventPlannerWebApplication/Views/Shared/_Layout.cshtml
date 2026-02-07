@@ -24,5 +24,38 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
+
+    @if (TempData["JoinSuccess"] != null)
+    {
+        <div class="modal fade" id="successModal" tabindex="-1" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">Успешно</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body text-center">
+                        <div class="mb-3">
+                            <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+                        </div>
+                        <p class="fs-5">@TempData["JoinSuccess"]</p>
+                    </div>
+
+                    <div class="modal-footer justify-content-center border-0">
+                        <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">Хорошо</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Инициализируем и открываем модальное окно после загрузки страницы
+            document.addEventListener("DOMContentLoaded", function() {
+                var myModal = new bootstrap.Modal(document.getElementById('successModal'));
+                myModal.show();
+            });
+        </script>
+    }
 </body>
 </html>

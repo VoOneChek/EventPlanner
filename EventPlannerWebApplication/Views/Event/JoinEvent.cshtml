@@ -1,5 +1,6 @@
 ﻿@using EventPlannerWebApplication.Models
 @{
+    ViewData["Title"] = "Время события";
     var ev = ViewBag.Event as Event;
     string name = ViewBag.ParticipantName;
 }
@@ -11,6 +12,7 @@
         <form method="post" action="/Event/ConfirmJoin">
             <input type="hidden" name="eventId" value="@ev.Id" />
             <input type="hidden" name="participantName" value="@name" />
+            <input type="hidden" name="timezoneOffset" id="timezoneOffset" value="" />
 
             @if (ev.IsFixedDate)
             {
@@ -18,12 +20,12 @@
                 .SelectMany(p => p.AvailabilityIntervals)
                 .FirstOrDefault();
 
-                <p><b>Дата события:</b> @fixedInterval!.StartTime.ToLocalTime()</p>
+                <p><b>Дата события:</b> @fixedInterval!.StartTime.ToLocalTime() - @fixedInterval!.EndTime.ToLocalTime()</p>
 
                 <div class="d-flex justify-content-between mt-3">
                     <button name="actionType" value="agree" class="btn btn-success">Согласен</button>
                     <button name="actionType" value="decline" class="btn btn-danger">Отказаться</button>
-                    <button name="actionType" value="cancel" class="btn btn-secondary">Отмена</button>
+                    <a href="/Event/Cancel" class="btn btn-secondary">Отмена</a>
                 </div>
             }
             else
@@ -37,7 +39,7 @@
 
                 <div class="d-flex justify-content-between mt-4">
                     <button name="actionType" value="submit" class="btn btn-success">Отправить</button>
-                    <button name="actionType" value="cancel" class="btn btn-secondary">Отмена</button>
+                    <a href="/Event/Cancel" class="btn btn-secondary">Отмена</a>
                 </div>
             }
 
@@ -62,5 +64,10 @@
         </div>
       </div>
      `);
+    }
+
+    function setOffsetBeforeSubmit() {
+        var offset = new Date().getTimezoneOffset();
+        document.getElementById('timezoneOffset').value = offset;
     }
 </script>

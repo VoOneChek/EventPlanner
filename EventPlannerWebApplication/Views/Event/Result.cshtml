@@ -1,3 +1,61 @@
-﻿@{
-    ViewData["Title"] = "Результаты события";
+﻿@model EventPlannerWebApplication.Models.Event
+
+@{
+    ViewData["Title"] = "Результат события";
+    var creatorName = ViewBag.CreatorName as string;
 }
+
+<div class="container mt-5">
+    <div class="card shadow p-4">
+
+        <h2 class="text-center mb-4">Результат события</h2>
+
+        <div class="mb-3">
+            <strong>Название события:</strong> @Model.Title
+        </div>
+
+        <div class="mb-3">
+            <strong>Создатель:</strong> @creatorName
+        </div>
+
+        <div class="mb-3">
+            <strong>Дата создания:</strong>
+            @Model.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+        </div>
+
+        <div class="mb-3">
+            <strong>Ваш код создателя (никому не сообщайте и не передавайте его):</strong>
+            <span class="badge bg-danger">@Model.OwnerCode</span>
+        </div>
+
+        <div class="mb-3">
+            <strong>Код для участников:</strong>
+            <span class="badge bg-primary">@Model.PublicCode</span>
+        </div>
+
+        <hr />
+
+        <h5>Участники:</h5>
+        <ul class="list-group mb-4">
+            @foreach (var p in Model.Participants)
+            {
+                <li class="list-group-item">
+                    @p.Name
+                </li>
+            }
+        </ul>
+
+        <form method="post" action="/Event/Calculate">
+            <input type="hidden" name="id" value="@Model.Id" />
+
+            <div class="d-flex justify-content-between">
+                <button type="submit" class="btn btn-success">
+                    Рассчитать оптимальное время
+                </button>
+
+                <a href="/Event/Cancel" class="btn btn-secondary">Отмена</a>
+            </div>
+        </form>
+
+    </div>
+</div>

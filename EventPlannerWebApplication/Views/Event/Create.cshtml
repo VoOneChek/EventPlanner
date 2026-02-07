@@ -28,6 +28,8 @@
                 </select>
             </div>
 
+            <input type="hidden" name="timezoneOffset" id="timezoneOffset" value="" />
+
             <!-- Фиксированное -->
             <div id="fixedDateBlock">
                 <div class="mb-3">
@@ -51,7 +53,9 @@
             </div>
 
             <div class="mt-4 d-flex justify-content-between">
-                <button type="submit" class="btn btn-success">Создать</button>
+                <button type="submit" class="btn btn-success" onclick="setOffsetBeforeSubmit()">
+                    Создать событие
+                </button>
                 <a href="/Event/Cancel" class="btn btn-secondary">Отмена</a>
             </div>
 
@@ -99,5 +103,10 @@
         }
 
         button.closest(".interval-row").remove();
+    }
+
+    function setOffsetBeforeSubmit() {
+        var offset = new Date().getTimezoneOffset();
+        document.getElementById('timezoneOffset').value = offset;
     }
 </script>

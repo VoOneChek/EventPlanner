@@ -34,7 +34,8 @@ namespace EventPlannerWebApplication.Controllers
             DateTime? fixedStart,
             DateTime? fixedEnd,
             List<DateTime>? flexibleStart,
-            List<DateTime>? flexibleEnd)
+            List<DateTime>? flexibleEnd,
+            int timezoneOffset)
         {
             if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(creatorName))
             {
@@ -67,7 +68,7 @@ namespace EventPlannerWebApplication.Controllers
 
             if (isFixedDate)
             {
-                if (!ValidateDateTimeInterval(fixedStart, fixedEnd, "", out var startUtc, out var endUtc))
+                if (!ValidateDateTimeInterval(fixedStart, fixedEnd, "", out var startUtc, out var endUtc, timezoneOffset))
                     return View();
 
                 participant.AvailabilityIntervals.Add(new AvailabilityInterval
@@ -80,7 +81,7 @@ namespace EventPlannerWebApplication.Controllers
             }
             else
             {
-                if (ValidateIntervalList(flexibleStart, flexibleEnd, out var intervals))
+                if (ValidateIntervalList(flexibleStart, flexibleEnd, out var intervals, timezoneOffset))
                 {
                     foreach (var interval in intervals)
                     {
@@ -138,7 +139,7 @@ namespace EventPlannerWebApplication.Controllers
             var ev = _context.Events
                 .Include(e => e.Participants)
                     .ThenInclude(p => p.AvailabilityIntervals)
-                .FirstOrDefault(e => e.PublicCode == code);
+                .FirstOrDefault(e => e.PublicCode == code || e.OwnerCode == code);
 
             if (ev == null)
             {
@@ -146,23 +147,28 @@ namespace EventPlannerWebApplication.Controllers
                 return View();
             }
 
-            var userId = HttpContext.Session.GetInt32("UserId");
-            if (userId != null)
+            if (ev.PublicCode == code)
             {
-                bool exists = _context.Participants
-                    .Any(p => p.EventId == ev.Id && p.UserId == userId);
-
-                if (exists)
+                var userId = HttpContext.Session.GetInt32("UserId");
+                if (userId != null)
                 {
-                    ModelState.AddModelError("", "Вы уже участвуете в этом событии");
-                    return View();
+                    bool exists = _context.Participants
+                        .Any(p => p.EventId == ev.Id && p.UserId == userId);
+
+                    if (exists)
+                    {
+                        ModelState.AddModelError("", "Вы уже участвуете в этом событии");
+                        return View();
+                    }
                 }
+
+                ViewBag.Event = ev;
+                ViewBag.ParticipantName = participantName;
+
+                return View("JoinEvent");
             }
-
-            ViewBag.Event = ev;
-            ViewBag.ParticipantName = participantName;
-
-            return View("JoinEvent");
+            else
+                return RedirectToAction("Result", new { id = ev.Id });
         }
 
         [HttpPost]
@@ -171,10 +177,9 @@ namespace EventPlannerWebApplication.Controllers
             string participantName,
             string actionType,
             List<DateTime>? flexibleStart,
-            List<DateTime>? flexibleEnd)
+            List<DateTime>? flexibleEnd, 
+            int timezoneOffset)
         {
-            if (actionType == "cancel")
-                return RedirectToAction("Menu", "Home");
 
             var ev = _context.Events.FirstOrDefault(e => e.Id == eventId);
             if (ev == null)
@@ -196,7 +201,7 @@ namespace EventPlannerWebApplication.Controllers
             }
             else
             {
-                if (ValidateIntervalList(flexibleStart, flexibleEnd, out var intervals))
+                if (ValidateIntervalList(flexibleStart, flexibleEnd, out var intervals, timezoneOffset))
                 {
                     foreach (var interval in intervals)
                     {
@@ -215,13 +220,43 @@ namespace EventPlannerWebApplication.Controllers
             _context.Participants.Add(participant);
             _context.SaveChanges();
 
-            return RedirectToAction("Result", new { id = eventId });
+            TempData["JoinSuccess"] = "Ваши данные успешно сохранены!";
+
+            return RedirectToAction("Cancel");
         }
 
         [HttpGet]
-        public IActionResult Result()
+        public IActionResult Result(int id)
         {
-            return View();
+            var ev = _context.Events
+                .Include(e => e.Participants)
+                .FirstOrDefault(e => e.Id == id);
+
+            if (ev == null)
+                return NotFound();
+
+            var creator = ev.Participants.FirstOrDefault();
+
+            ViewBag.CreatorName = creator?.Name ?? "Неизвестно";
+
+            return View(ev);
+        }
+
+        [HttpPost]
+        public IActionResult Calculate(int id)
+        {
+            var ev = _context.Events
+                .Include(e => e.Participants)
+                    .ThenInclude(p => p.AvailabilityIntervals)
+                .FirstOrDefault(e => e.Id == id);
+
+            if (ev == null)
+                return NotFound();
+
+            ev.Status = EventStatus.Calculated;
+            _context.SaveChanges();
+
+            return RedirectToAction("Result", new { id = id });
         }
 
         #region Private Validation Methods
@@ -234,7 +269,7 @@ namespace EventPlannerWebApplication.Controllers
 
         // Проверяет один интервал дат. Возвращает false и пишет в ModelState, если ошибка.
         // Если все ок, возвращает true и конвертированные даты.
-        private bool ValidateDateTimeInterval(DateTime? start, DateTime? end, string prefix, out DateTime startUtc, out DateTime endUtc)
+        private bool ValidateDateTimeInterval(DateTime? start, DateTime? end, string prefix, out DateTime startUtc, out DateTime endUtc, int timezoneOffset)
         {
             startUtc = default;
             endUtc = default;
@@ -245,8 +280,11 @@ namespace EventPlannerWebApplication.Controllers
                 return false;
             }
 
-            startUtc = DateTime.SpecifyKind(start.Value, DateTimeKind.Utc);
-            endUtc = DateTime.SpecifyKind(end.Value, DateTimeKind.Utc);
+            startUtc = start.Value.AddMinutes(timezoneOffset);
+            startUtc = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc);
+
+            endUtc = end.Value.AddMinutes(timezoneOffset);
+            endUtc = DateTime.SpecifyKind(endUtc, DateTimeKind.Utc);
 
             if (startUtc <= DateTime.UtcNow)
             {
@@ -265,7 +303,7 @@ namespace EventPlannerWebApplication.Controllers
 
         // Проверяет список интервалов. Возвращает false при ошибке.
         // При успехе возвращает список объектов AvailabilityInterval.
-        private bool ValidateIntervalList(List<DateTime>? startList, List<DateTime>? endList, out List<AvailabilityInterval> validIntervals)
+        private bool ValidateIntervalList(List<DateTime>? startList, List<DateTime>? endList, out List<AvailabilityInterval> validIntervals, int timezoneOffset)
         {
             validIntervals = new List<AvailabilityInterval>();
 
@@ -279,7 +317,7 @@ namespace EventPlannerWebApplication.Controllers
             {
                 string prefix = $"Интервал #{i + 1}: ";
 
-                if (ValidateDateTimeInterval(startList[i], endList[i], prefix, out var startUtc, out var endUtc))
+                if (ValidateDateTimeInterval(startList[i], endList[i], prefix, out var startUtc, out var endUtc, timezoneOffset))
                 {
                     validIntervals.Add(new AvailabilityInterval
                     {
