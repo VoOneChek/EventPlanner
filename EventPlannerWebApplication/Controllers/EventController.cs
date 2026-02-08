@@ -6,19 +6,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EventPlannerWebApplication.Controllers
 {
-    public class EventController: Controller
+    public class EventController : Controller
     {
         private readonly EventPlannerDbContext _context;
+        private readonly IEventService _eventService;
         private readonly ISchedulingService _schedulingService;
 
-        public EventController(EventPlannerDbContext context, ISchedulingService schedulingService)
+        public EventController(EventPlannerDbContext context, IEventService eventService, ISchedulingService schedulingService)
         {
             _context = context;
+            _eventService = eventService;
             _schedulingService = schedulingService;
         }
 
-        [HttpGet]
-        public IActionResult Create()
+        private void SetViewBagUserName()
         {
             var userId = HttpContext.Session.GetInt32("UserId");
             if (userId.HasValue)
@@ -26,11 +27,17 @@ namespace EventPlannerWebApplication.Controllers
                 var user = _context.Users.FirstOrDefault(u => u.Id == userId);
                 ViewBag.UserName = user?.Name;
             }
+        }
+
+        [HttpGet]
+        public IActionResult Create()
+        {
+            SetViewBagUserName();
             return View();
         }
 
         [HttpPost]
-        public IActionResult Create(
+        public async Task<IActionResult> Create(
             string title,
             string creatorName,
             bool isFixedDate,
@@ -40,71 +47,23 @@ namespace EventPlannerWebApplication.Controllers
             List<DateTime>? flexibleEnd,
             int timezoneOffset)
         {
-            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(creatorName))
+            try
             {
-                ModelState.AddModelError("", "Введите название события и имя");
+                var userId = HttpContext.Session.GetInt32("UserId");
+                var ev = await _eventService.CreateEventAsync(
+                    title, creatorName, isFixedDate,
+                    fixedStart, fixedEnd, flexibleStart, flexibleEnd,
+                    timezoneOffset, userId);
+
+                return RedirectToAction("Result", new { code = ev.OwnerCode });
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError("", ex.Message);
+                SetViewBagUserName(); // Восстанавливаем имя при ошибке
                 return View();
             }
-
-            var ev = new Event
-            {
-                Title = title,
-                IsFixedDate = isFixedDate,
-                CreatedAt = DateTime.UtcNow,
-                Status = EventStatus.Created,
-                PublicCode = Guid.NewGuid().ToString("N")[..6],
-                OwnerCode = Guid.NewGuid().ToString("N")[..8]
-            };
-
-            var participant = new Participant
-            {
-                Name = creatorName,
-                Event = ev
-            };
-
-            int? userId = HttpContext.Session.GetInt32("UserId");
-            if (userId.HasValue)
-            {
-                ev.UserId = userId.Value;
-                participant.UserId = userId.Value;
-            }
-
-            if (isFixedDate)
-            {
-                if (!ValidateDateTimeInterval(fixedStart, fixedEnd, "", out var startUtc, out var endUtc, timezoneOffset))
-                    return View();
-
-                participant.AvailabilityIntervals.Add(new AvailabilityInterval
-                {
-                    StartTime = startUtc,
-                    EndTime = endUtc,
-                    Participant = participant
-                });
-                ev.Participants.Add(participant);
-            }
-            else
-            {
-                if (ValidateIntervalList(flexibleStart, flexibleEnd, out var intervals, timezoneOffset))
-                {
-                    foreach (var interval in intervals)
-                    {
-                        interval.Participant = participant;
-                        participant.AvailabilityIntervals.Add(interval);
-                    }
-                    ev.Participants.Add(participant);
-                }
-                else
-                {
-                    return View();
-                }
-            }
-
-            _context.Events.Add(ev);
-            _context.SaveChanges();
-
-            return RedirectToAction("Result", new { code = ev.OwnerCode });
         }
-
 
         public IActionResult Cancel()
         {
@@ -119,113 +78,81 @@ namespace EventPlannerWebApplication.Controllers
         [HttpGet]
         public IActionResult Join()
         {
-            var userId = HttpContext.Session.GetInt32("UserId");
-
-            if (userId != null)
-            {
-                var user = _context.Users.FirstOrDefault(u => u.Id == userId);
-                ViewBag.UserName = user?.Name;
-            }
-
+            SetViewBagUserName();
             return View();
         }
 
         [HttpPost]
-        public IActionResult Join(string code, string participantName)
+        public async Task<IActionResult> Join(string code, string participantName)
         {
-            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(participantName))
+            try
             {
-                ModelState.AddModelError("", "Введите код события и имя");
-                return View();
-            }
-
-            var ev = _context.Events
-                .Include(e => e.Participants)
-                    .ThenInclude(p => p.AvailabilityIntervals)
-                .FirstOrDefault(e => e.PublicCode == code || e.OwnerCode == code);
-
-            if (ev == null)
-            {
-                ModelState.AddModelError("", "Событие не найдено");
-                return View();
-            }
-
-            if (ev.PublicCode == code)
-            {
-                var userId = HttpContext.Session.GetInt32("UserId");
-                if (userId != null)
+                if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(participantName))
                 {
-                    bool exists = _context.Participants
-                        .Any(p => p.EventId == ev.Id && p.UserId == userId);
-
-                    if (exists)
-                    {
-                        ModelState.AddModelError("", "Вы уже участвуете в этом событии");
-                        return View();
-                    }
+                    ModelState.AddModelError("", "Введите код события и имя");
+                    return View();
                 }
+
+                var ev = await _eventService.GetEventByCodeAsync(code);
+
+                if (ev == null)
+                {
+                    ModelState.AddModelError("", "Событие не найдено");
+                    return View();
+                }
+
+                if (ev.OwnerCode == code)
+                    return RedirectToAction("Result", new { code = ev.OwnerCode });
+
+                var userId = HttpContext.Session.GetInt32("UserId");
+                await _eventService.EnsureUserCanJoinAsync(ev.Id, userId);
 
                 ViewBag.Event = ev;
                 ViewBag.ParticipantName = participantName;
-
                 return View("JoinEvent");
             }
-            else
-                return RedirectToAction("Result", new { code = ev.OwnerCode });
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError("", ex.Message);
+                SetViewBagUserName();
+                return View();
+            }
         }
 
         [HttpPost]
-        public IActionResult ConfirmJoin(
+        public async Task<IActionResult> ConfirmJoin(
             int eventId,
             string participantName,
             string actionType,
             List<DateTime>? flexibleStart,
-            List<DateTime>? flexibleEnd, 
+            List<DateTime>? flexibleEnd,
             int timezoneOffset)
         {
-
-            var ev = _context.Events.FirstOrDefault(e => e.Id == eventId);
-            if (ev == null)
-                return RedirectToAction("Join");
-
-            var participant = new Participant
+            try
             {
-                Name = participantName,
-                EventId = eventId
-            };
+                var ev = await _context.Events.FirstOrDefaultAsync(e => e.Id == eventId);
+                if (ev == null) return RedirectToAction("Join");
 
-            var userId = HttpContext.Session.GetInt32("UserId");
-            if (userId != null)
-                participant.UserId = userId.Value;
+                var userId = HttpContext.Session.GetInt32("UserId");
 
-            if (ev.IsFixedDate)
-            {
-                participant.IsAgreed = actionType == "agree";
+                bool? isAgreed = ev.IsFixedDate ? (actionType == "agree") : (bool?)null;
+
+                await _eventService.ConfirmJoinAsync(
+                    eventId, participantName, ev.IsFixedDate, isAgreed,
+                    flexibleStart, flexibleEnd, timezoneOffset, userId);
+
+                TempData["JoinSuccess"] = "Ваши данные успешно сохранены!";
+                return RedirectToAction("Cancel");
             }
-            else
+            catch (InvalidOperationException ex)
             {
-                if (ValidateIntervalList(flexibleStart, flexibleEnd, out var intervals, timezoneOffset))
-                {
-                    foreach (var interval in intervals)
-                    {
-                        interval.Participant = participant;
-                        participant.AvailabilityIntervals.Add(interval);
-                    }
-                }
-                else
-                {
-                    ViewBag.Event = ev;
-                    ViewBag.ParticipantName = participantName;
-                    return View("JoinEvent");
-                }
+                // Если ошибка валидации интервалов
+                var ev = await _context.Events.FindAsync(eventId);
+                ViewBag.Event = ev;
+                ViewBag.ParticipantName = participantName;
+                ModelState.AddModelError("", ex.Message);
+                return View("JoinEvent");
             }
-
-            _context.Participants.Add(participant);
-            _context.SaveChanges();
-
-            TempData["JoinSuccess"] = "Ваши данные успешно сохранены!";
-
-            return RedirectToAction("Cancel");
         }
 
         [HttpGet]
@@ -253,28 +180,29 @@ namespace EventPlannerWebApplication.Controllers
         [HttpPost]
         public async Task<IActionResult> Calculate(string code)
         {
-            var ev = await _context.Events.FirstOrDefaultAsync(e => e.OwnerCode == code);
-            if (ev == null || ev.Status != EventStatus.Created)
-                return NotFound();
+            try
+            {
+                var ev = await _context.Events.FirstOrDefaultAsync(e => e.OwnerCode == code);
+                if (ev == null || ev.Status != EventStatus.Created)
+                    throw new InvalidOperationException("Событие не найдено или уже рассчитано");
 
-            ev.Status = EventStatus.Calculated;
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction("Result", new { code });
+                await _eventService.UpdateStatusAsync(ev.Id, EventStatus.Calculated);
+                return RedirectToAction("Result", new { code });
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["ModalError"] = ex.Message;
+                return RedirectToAction("Result", new { code }); // Вернуться назад, если возможно
+            }
         }
 
         [HttpGet]
         public async Task<IActionResult> MyEvents()
         {
             var userId = HttpContext.Session.GetInt32("UserId");
-            if (userId == null)
-                return RedirectToAction("Login", "Account");
+            if (userId == null) return RedirectToAction("Login", "Account");
 
-            var events = await _context.Events
-                .Where(e => e.UserId == userId && e.Status != EventStatus.Closed)
-                .OrderByDescending(e => e.CreatedAt)
-                .ToListAsync();
-
+            var events = await _eventService.GetUserEventsAsync(userId.Value);
             return View(events);
         }
 
@@ -282,141 +210,66 @@ namespace EventPlannerWebApplication.Controllers
         public async Task<IActionResult> ClosedEvents()
         {
             var userId = HttpContext.Session.GetInt32("UserId");
-            if (userId == null)
-                return RedirectToAction("Login", "Account");
+            if (userId == null) return RedirectToAction("Login", "Account");
 
-            var events = await _context.Events
-                .Where(e => e.UserId == userId && e.Status == EventStatus.Closed)
-                .OrderByDescending(e => e.CreatedAt)
-                .ToListAsync();
-
+            var events = await _eventService.GetUserEventsAsync(userId.Value, EventStatus.Closed);
             return View(events);
         }
 
         [HttpPost]
         public async Task<IActionResult> FinishEvent(string code)
         {
-            var userId = HttpContext.Session.GetInt32("UserId");
+            try
+            {
+                var ev = await _context.Events.FirstOrDefaultAsync(e => e.OwnerCode == code);
+                if (ev == null) throw new InvalidOperationException("Событие не найдено");
 
-            var ev = await _context.Events
-                .FirstOrDefaultAsync(e => e.OwnerCode == code && e.UserId == userId);
+                var userId = HttpContext.Session.GetInt32("UserId");
+                if (ev.UserId != userId) throw new InvalidOperationException("Нет прав");
 
-            if (ev == null)
-                return NotFound();
-
-            ev.Status = EventStatus.Closed;
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction("MyEvents");
+                await _eventService.UpdateStatusAsync(ev.Id, EventStatus.Closed);
+                return RedirectToAction("MyEvents");
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["ModalError"] = ex.Message;
+                return RedirectToAction("MyEvents");
+            }
         }
 
         [HttpPost]
         public async Task<IActionResult> DeleteClosed(string code)
         {
-            var userId = HttpContext.Session.GetInt32("UserId");
+            try
+            {
+                var ev = await _context.Events.FirstOrDefaultAsync(e => e.OwnerCode == code);
+                var userId = HttpContext.Session.GetInt32("UserId");
+                if (ev == null || ev.UserId != userId) throw new InvalidOperationException("Нет прав");
 
-            var ev = await _context.Events
-                .FirstOrDefaultAsync(e => e.OwnerCode == code && e.UserId == userId && e.Status == EventStatus.Closed);
-
-            if (ev == null)
-                return NotFound();
-
-            _context.Events.Remove(ev);
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction("ClosedEvents");
+                await _eventService.DeleteEventAsync(ev.Id, userId!.Value);
+                return RedirectToAction("ClosedEvents");
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["ModalError"] = ex.Message;
+                return RedirectToAction("ClosedEvents");
+            }
         }
 
         [HttpPost]
         public async Task<IActionResult> DeleteAllClosed()
         {
             var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null) return RedirectToAction("Login", "Account");
 
-            var events = await _context.Events
-                .Where(e => e.UserId == userId && e.Status == EventStatus.Closed)
-                .ToListAsync();
+            var events = await _eventService.GetUserEventsAsync(userId.Value, EventStatus.Closed);
 
-            _context.Events.RemoveRange(events);
-            await _context.SaveChangesAsync();
+            foreach (var ev in events)
+            {
+                await _eventService.DeleteEventAsync(ev.Id, userId.Value);
+            }
 
             return RedirectToAction("ClosedEvents");
         }
-
-        #region Private Validation Methods
-
-        // Проверяет, участвует ли пользователь в событии
-        private bool CheckIfUserParticipates(int eventId, int userId)
-        {
-            return _context.Participants.Any(p => p.EventId == eventId && p.UserId == userId);
-        }
-
-        // Проверяет один интервал дат. Возвращает false и пишет в ModelState, если ошибка.
-        // Если все ок, возвращает true и конвертированные даты.
-        private bool ValidateDateTimeInterval(DateTime? start, DateTime? end, string prefix, out DateTime startUtc, out DateTime endUtc, int timezoneOffset)
-        {
-            startUtc = default;
-            endUtc = default;
-
-            if (!start.HasValue || !end.HasValue)
-            {
-                ModelState.AddModelError("", $"{prefix}Укажите дату начала и конца");
-                return false;
-            }
-
-            startUtc = start.Value.AddMinutes(timezoneOffset);
-            startUtc = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc);
-
-            endUtc = end.Value.AddMinutes(timezoneOffset);
-            endUtc = DateTime.SpecifyKind(endUtc, DateTimeKind.Utc);
-
-            if (startUtc <= DateTime.UtcNow)
-            {
-                ModelState.AddModelError("", $"{prefix}Событие не может быть в прошлом");
-                return false;
-            }
-
-            if (startUtc >= endUtc)
-            {
-                ModelState.AddModelError("", $"{prefix}Дата начала должна быть раньше даты окончания");
-                return false;
-            }
-
-            return true;
-        }
-
-        // Проверяет список интервалов. Возвращает false при ошибке.
-        // При успехе возвращает список объектов AvailabilityInterval.
-        private bool ValidateIntervalList(List<DateTime>? startList, List<DateTime>? endList, out List<AvailabilityInterval> validIntervals, int timezoneOffset)
-        {
-            validIntervals = new List<AvailabilityInterval>();
-
-            if (startList == null || endList == null || startList.Count == 0)
-            {
-                ModelState.AddModelError("", "Добавьте хотя бы один интервал");
-                return false;
-            }
-
-            for (int i = 0; i < startList.Count; i++)
-            {
-                string prefix = $"Интервал #{i + 1}: ";
-
-                if (ValidateDateTimeInterval(startList[i], endList[i], prefix, out var startUtc, out var endUtc, timezoneOffset))
-                {
-                    validIntervals.Add(new AvailabilityInterval
-                    {
-                        StartTime = startUtc,
-                        EndTime = endUtc
-                    });
-                }
-                else
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        #endregion
     }
 }

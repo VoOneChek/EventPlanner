@@ -1,18 +1,18 @@
-﻿using EventPlannerWebApplication.Data;
+﻿using EventPlannerWebApplication.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace EventPlannerWebApplication.Controllers
 {
-    public class HomeController: Controller
+    public class HomeController : Controller
     {
-        private readonly EventPlannerDbContext _context;
+        private readonly IAccountService _accountService;
 
-        public HomeController(EventPlannerDbContext context)
+        public HomeController(IAccountService accountService)
         {
-            _context = context;
+            _accountService = accountService;
         }
 
+        [HttpGet]
         public IActionResult Index()
         {
             int? userId = HttpContext.Session.GetInt32("UserId");
@@ -22,18 +22,27 @@ namespace EventPlannerWebApplication.Controllers
             return View();
         }
 
-        public IActionResult Menu()
+        [HttpGet]
+        public async Task<IActionResult> Menu()
         {
             var userId = HttpContext.Session.GetInt32("UserId");
 
             if (userId.HasValue)
             {
-                var user = _context.Users.FirstOrDefault(u => u.Id == userId);
+                var user = await _accountService.GetUserByIdAsync(userId.Value);
+
+                if (user == null)
+                {
+                    HttpContext.Session.Clear();
+                    return RedirectToAction("Index", "Home");
+                }
 
                 ViewBag.User = user;
             }
             else
+            {
                 return RedirectToAction("Index", "Home");
+            }
 
             return View();
         }

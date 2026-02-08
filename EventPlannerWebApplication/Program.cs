@@ -19,6 +19,9 @@ builder.Services.AddDbContext<EventPlannerDbContext>(options =>
 builder.Services.AddSession();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<ISchedulingService, SchedulingService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<ITimeService,  TimeService>();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
