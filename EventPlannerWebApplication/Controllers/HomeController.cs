@@ -15,6 +15,10 @@ namespace EventPlannerWebApplication.Controllers
 
         public IActionResult Index()
         {
+            int? userId = HttpContext.Session.GetInt32("UserId");
+            if (userId.HasValue)
+                return RedirectToAction("Menu", "Home");
+
             return View();
         }
 
@@ -28,6 +32,8 @@ namespace EventPlannerWebApplication.Controllers
 
                 ViewBag.User = user;
             }
+            else
+                return RedirectToAction("Index", "Home");
 
             return View();
         }

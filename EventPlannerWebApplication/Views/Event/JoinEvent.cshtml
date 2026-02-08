@@ -30,6 +30,26 @@
             }
             else
             {
+                var creator = ev.Participants.FirstOrDefault();
+                var creatorIntervals = creator?.AvailabilityIntervals;
+
+                if (creatorIntervals != null && creatorIntervals.Any())
+                {
+                    <div class="alert alert-info">
+                        <b>Предложенное время создателем:</b>
+                        <ul class="list-group mt-2">
+                            @foreach (var i in creatorIntervals)
+                            {
+                                <li class="list-group-item">
+                                    @i.StartTime.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                    —
+                                    @i.EndTime.ToLocalTime().ToString("HH:mm")
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+
                 <label>Ваши возможные интервалы:</label>
                 <div id="flexibleContainer"></div>
 

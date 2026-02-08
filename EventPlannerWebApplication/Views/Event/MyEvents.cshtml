@@ -1,0 +1,66 @@
+﻿@model List<EventPlannerWebApplication.Models.Event>
+
+@{
+    ViewData["Title"] = "Мои события";
+}
+
+<div class="container mt-5">
+    <h2 class="mb-4">Мои события</h2>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">У вас пока нет событий</div>
+    }
+    else
+    {
+        <div class="list-group">
+
+            @foreach (var ev in Model)
+            {
+                string statusText = ev.Status switch
+                {
+                    EventStatus.Created => "Создано",
+                    EventStatus.Calculated => "Рассчитано",
+                    _ => "Неизвестно"
+                };
+
+                string statusClass = ev.Status switch
+                {
+                    EventStatus.Created => "bg-secondary",
+                    EventStatus.Calculated => "bg-success",
+                    _ => "bg-dark"
+                };
+
+                <div class="list-group-item mb-2 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5>@ev.Title</h5>
+                        <span class="badge @statusClass">@statusText</span>
+                    </div>
+
+                    <p>
+                        Создано: @ev.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                    </p>
+
+                    <div class="d-flex justify-content-between">
+
+                        <a href="/Event/Result?code=@ev.OwnerCode" class="btn btn-primary">
+                            Открыть
+                        </a>
+
+                        <form method="post" action="/Event/FinishEvent">
+                            <input type="hidden" name="code" value="@ev.OwnerCode" />
+                            <button type="submit" class="btn btn-danger">
+                                Завершить
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            }
+
+        </div>
+    }
+
+    <a href="/Home/Menu" class="btn btn-secondary mt-4">
+        Назад в меню
+    </a>
+</div>

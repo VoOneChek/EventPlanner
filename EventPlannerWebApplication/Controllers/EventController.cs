@@ -254,13 +254,92 @@ namespace EventPlannerWebApplication.Controllers
         public async Task<IActionResult> Calculate(string code)
         {
             var ev = await _context.Events.FirstOrDefaultAsync(e => e.OwnerCode == code);
-            if (ev == null)
+            if (ev == null || ev.Status != EventStatus.Created)
                 return NotFound();
 
             ev.Status = EventStatus.Calculated;
             await _context.SaveChangesAsync();
 
             return RedirectToAction("Result", new { code });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> MyEvents()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return RedirectToAction("Login", "Account");
+
+            var events = await _context.Events
+                .Where(e => e.UserId == userId && e.Status != EventStatus.Closed)
+                .OrderByDescending(e => e.CreatedAt)
+                .ToListAsync();
+
+            return View(events);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ClosedEvents()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return RedirectToAction("Login", "Account");
+
+            var events = await _context.Events
+                .Where(e => e.UserId == userId && e.Status == EventStatus.Closed)
+                .OrderByDescending(e => e.CreatedAt)
+                .ToListAsync();
+
+            return View(events);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> FinishEvent(string code)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+
+            var ev = await _context.Events
+                .FirstOrDefaultAsync(e => e.OwnerCode == code && e.UserId == userId);
+
+            if (ev == null)
+                return NotFound();
+
+            ev.Status = EventStatus.Closed;
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("MyEvents");
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DeleteClosed(string code)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+
+            var ev = await _context.Events
+                .FirstOrDefaultAsync(e => e.OwnerCode == code && e.UserId == userId && e.Status == EventStatus.Closed);
+
+            if (ev == null)
+                return NotFound();
+
+            _context.Events.Remove(ev);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("ClosedEvents");
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DeleteAllClosed()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+
+            var events = await _context.Events
+                .Where(e => e.UserId == userId && e.Status == EventStatus.Closed)
+                .ToListAsync();
+
+            _context.Events.RemoveRange(events);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("ClosedEvents");
         }
 
         #region Private Validation Methods

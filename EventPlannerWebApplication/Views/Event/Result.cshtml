@@ -92,20 +92,29 @@
             }
         }
 
-        <form method="post" action="/Event/Calculate">
-            <input type="hidden" name="id" value="@Model.Id" />
+        <div class="d-flex justify-content-between">
 
-            <div class="d-flex justify-content-between">
-                @if (Model.Status != EventStatus.Calculated)
-                {
-                    <button type="submit" class="btn btn-success">
-                        Рассчитать оптимальное время
-                    </button>
-                }
+            @if (Model.Status == EventStatus.Created)
+            {
+                <form method="post" action="/Event/Calculate">
+                    <input type="hidden" name="code" value="@Model.OwnerCode" />            
+                            <button type="submit" class="btn btn-success">
+                                Рассчитать оптимальное время
+                            </button>
+                    
+                </form>
+            }
 
-                <a href="/Event/Cancel" class="btn btn-secondary">Отмена</a>
-            </div>
-        </form>
+            <form method="post" action="/Event/FinishEvent">
+                <input type="hidden" name="code" value="@Model.OwnerCode" />
+                <button type="submit" class="btn btn-danger">
+                    Завершить
+                </button>
+            </form>
+
+            <a href="/Event/Cancel" class="btn btn-secondary">В меню</a>
+
+        </div>
 
     </div>
 </div>

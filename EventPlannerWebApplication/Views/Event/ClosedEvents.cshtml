@@ -1,0 +1,52 @@
+﻿@model List<EventPlannerWebApplication.Models.Event>
+
+@{
+    ViewData["Title"] = "Завершённые события";
+}
+
+<div class="container mt-5">
+    <h2 class="mb-4">Завершённые события</h2>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">Завершённых событий нет</div>
+    }
+    else
+    {
+        <form method="post" action="/Event/DeleteAllClosed">
+            <button type="submit" class="btn btn-danger mb-3"
+                    onclick="return confirm('Удалить ВСЕ завершённые события?')">
+                Удалить все
+            </button>
+        </form>
+
+        <div class="list-group">
+
+            @foreach (var ev in Model)
+            {
+                <div class="list-group-item mb-2 shadow-sm">
+                    <h5>@ev.Title</h5>
+
+                    <p>
+                        Создано: @ev.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                    </p>
+
+                    <div class="d-flex justify-content-between">
+                        <form method="post" action="/Event/DeleteClosed">
+                            <input type="hidden" name="code" value="@ev.OwnerCode" />
+                            <button type="submit" class="btn btn-outline-danger"
+                                    onclick="return confirm('Удалить это событие?')">
+                                Удалить
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            }
+
+        </div>
+    }
+
+    <a href="/Home/Menu" class="btn btn-secondary mt-4">
+        Назад в меню
+    </a>
+</div>

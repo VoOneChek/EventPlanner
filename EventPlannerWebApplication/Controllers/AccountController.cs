@@ -19,30 +19,13 @@ namespace EventPlannerWebApplication.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Register(string name, string email, string password, string confirmPassword)
+        public IActionResult Register(string name, string email, string password, string confirmPassword)
         {
-            if (password != confirmPassword)
-            {
-                TempData["ModalError"] = "Пароли не совпадают";
+
+            if (SendMessage(name, email, password, confirmPassword).Result)
+                return RedirectToAction("ConfirmCode");
+            else
                 return RedirectToAction("Index", "Home");
-            }
-
-            if (_context.Users.Any(u => u.Email == email))
-            {
-                TempData["ModalError"] = "Пользователь с такой почтой уже существует";
-                return RedirectToAction("Index", "Home");
-            }
-
-            var code = new Random().Next(100000, 999999).ToString();
-
-            HttpContext.Session.SetString("RegisterCode", code);
-            HttpContext.Session.SetString("RegisterName", name);
-            HttpContext.Session.SetString("RegisterEmail", email);
-            HttpContext.Session.SetString("RegisterPassword", HashPassword(password));
-
-            await _emailService.SendAsync(email, "Код подтверждения", $"Ваш код: {code}");
-
-            return RedirectToAction("ConfirmCode");
         }
 
         [HttpGet]
@@ -62,17 +45,43 @@ namespace EventPlannerWebApplication.Controllers
                 return View();
             }
 
-            var user = new User
+            User? user = null;
+            int? userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
             {
-                Name = HttpContext.Session.GetString("RegisterName")!,
-                Email = HttpContext.Session.GetString("RegisterEmail")!,
-                Password = HttpContext.Session.GetString("RegisterPassword")!
-            };
+                user = new User
+                {
+                    Name = HttpContext.Session.GetString("RegisterName")!,
+                    Email = HttpContext.Session.GetString("RegisterEmail")!,
+                    Password = HttpContext.Session.GetString("RegisterPassword")!
+                };
 
-            _context.Users.Add(user);
+                _context.Users.Add(user);
+            }
+            else 
+            { 
+                user = await _context.Users.FindAsync(userId);
+
+                if (user == null)
+                {
+                    ViewBag.Error = "Ошибка получения данных";
+                    return View();
+                }
+
+                user.Name = HttpContext.Session.GetString("RegisterName")!;
+                user.Email = HttpContext.Session.GetString("RegisterEmail")!;
+                if (HttpContext.Session.Keys.Contains("RegisterPassword"))
+                    user.Password = HttpContext.Session.GetString("RegisterPassword")!;
+            }
+
             await _context.SaveChangesAsync();
 
             HttpContext.Session.Clear();
+
+            if (user != null)
+                HttpContext.Session.SetInt32("UserId", user.Id);
+            else
+                ViewBag.Error = "Ошибка сохранения данных";
 
             return RedirectToAction("Menu", "Home");
         }
@@ -116,5 +125,94 @@ namespace EventPlannerWebApplication.Controllers
 
             return RedirectToAction("Index", "Home");
         }
+
+        public IActionResult Profile()
+        {
+            int? userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return RedirectToAction("Index", "Home");
+
+            var user = _context.Users.FirstOrDefault(u => u.Id == userId);
+            return View(user);
+        }
+
+
+        [HttpPost]
+        public IActionResult UpdateProfile(string name, string email, string password, string confirmPassword)
+        {
+            int? userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return RedirectToAction("Index", "Home");
+
+            var user = _context.Users.First(u => u.Id == userId);
+
+            if (email != user.Email)
+            {
+                if (SendMessage(name, email, password, confirmPassword, user.Id).Result)
+                    return RedirectToAction("ConfirmCode");
+                else
+                    return RedirectToAction("Index", "Home");
+            }
+
+            var error = ValidateProfile(name, email, password, confirmPassword, user.Id);
+            if (error != null)
+            {
+                TempData["ModalError"] = error;
+                return RedirectToAction("Menu", "Home");
+            }
+
+            user.Name = name;
+            if (!string.IsNullOrWhiteSpace(password))
+                user.Password = HashPassword(password);
+
+            _context.SaveChanges();
+
+            TempData["ModalSuccess"] = "Профиль успешно обновлён";
+            return RedirectToAction("Menu", "Home");
+        }
+
+        #region Private Methods
+
+        private string? ValidateProfile(string name, string email, string password, string confirmPassword, int userId = -1)
+        {
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email))
+                return "Имя и Email обязательны";
+
+            if (!string.IsNullOrEmpty(password) || userId == -1)
+            {
+                if (password != confirmPassword)
+                    return "Пароли не совпадают";
+
+                if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
+                    return "Пароль минимум 6 символов";
+            }
+
+            if (_context.Users.Any(u => u.Email == email && u.Id != userId))
+                return "Почта уже занята";
+
+            return null;
+        }
+
+        private async Task<bool> SendMessage(string name, string email, string password, string confirmPassword, int userId = -1)
+        {
+            var error = ValidateProfile(name, email, password, confirmPassword, userId);
+            if (error != null)
+            {
+                TempData["ModalError"] = error;
+                return false;
+            }
+            var code = new Random().Next(100000, 999999).ToString();
+
+            HttpContext.Session.SetString("RegisterCode", code);
+            HttpContext.Session.SetString("RegisterName", name);
+            HttpContext.Session.SetString("RegisterEmail", email);
+            if (!string.IsNullOrEmpty(password))
+                HttpContext.Session.SetString("RegisterPassword", HashPassword(password));
+
+            await _emailService.SendAsync(email, "Код подтверждения", $"Ваш код: {code}");
+            return true;
+        }
+
+        #endregion
     }
 }
