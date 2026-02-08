@@ -107,19 +107,15 @@ setx MailPassword "ptck rksv kxdk wlyq"
 
 ## Установка и запуск
 
-### NuGet пакеты
-
-- Microsoft.EntityFrameworkCore (8.0.23)
-- Microsoft.EntityFrameworkCore.Tools (8.0.23)
-- Npgsql.EntityFrameworkCore.PostgreSQL (8.0.11)
-- BCrypt.Net-Next (4.0.3) — хэширование паролей
-
 ### Требования:
-- .NET 8 SDK
-- PostgreSQL
-- Visual Studio / Rider
+- Обязательные (для Debug и Release)
+  - ОС Windows 10/11 (x64)
+  - PostgreSQL
+- Только для разработки (Debug)
+  - .NET 8 SDK
+  - Visual Studio 2022 / Rider
 
-### Шаги запуска
+### Шаги запуска Debug
 
 1. Клонировать репозиторий:
 ```bash
@@ -131,3 +127,9 @@ git clone https://github.com/your-username/EventPlannerWebApplication.git
 Update-Database
 ```
 4. Запустить проект
+
+### Шаги запуска Release
+
+1. Скачать архив с релиза и распаковать его в любую папку.
+2. Установить переменные окружения (см. раздел Конфигурация)
+3. Запустить проект EventPlannerWebApplication.exe
