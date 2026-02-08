@@ -1,8 +1,8 @@
 ﻿@model EventPlannerWebApplication.Models.Event
 
 @{
-    ViewData["Title"] = "Результат события";
     var creatorName = ViewBag.CreatorName as string;
+    var bestSlots = ViewBag.BestSlots as List<EventPlannerWebApplication.Dto.TimeSlot>;
 }
 
 <div class="container mt-5">
@@ -10,48 +10,98 @@
 
         <h2 class="text-center mb-4">Результат события</h2>
 
-        <div class="mb-3">
-            <strong>Название события:</strong> @Model.Title
-        </div>
+        <div><b>Название:</b> @Model.Title</div>
+        <div><b>Создатель:</b> @creatorName</div>
+        <div><b>Дата создания:</b> @Model.CreatedAt.ToLocalTime()</div>
 
-        <div class="mb-3">
-            <strong>Создатель:</strong> @creatorName
+        <div class="mt-2">
+            <b>Код создателя:</b> <span class="badge bg-danger">@Model.OwnerCode</span>
         </div>
-
-        <div class="mb-3">
-            <strong>Дата создания:</strong>
-            @Model.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
-        </div>
-
-        <div class="mb-3">
-            <strong>Ваш код создателя (никому не сообщайте и не передавайте его):</strong>
-            <span class="badge bg-danger">@Model.OwnerCode</span>
-        </div>
-
-        <div class="mb-3">
-            <strong>Код для участников:</strong>
-            <span class="badge bg-primary">@Model.PublicCode</span>
+        <div class="mt-2">
+            <b>Код участников:</b> <span class="badge bg-primary">@Model.PublicCode</span>
         </div>
 
         <hr />
 
         <h5>Участники:</h5>
-        <ul class="list-group mb-4">
+        <ul class="list-group mb-3">
             @foreach (var p in Model.Participants)
             {
-                <li class="list-group-item">
-                    @p.Name
-                </li>
+                <li class="list-group-item">@p.Name</li>
             }
         </ul>
+
+        @if (Model.Status == EventStatus.Calculated)
+        {
+            <hr />
+
+            @if (Model.IsFixedDate)
+            {
+                <h5>Ответы участников:</h5>
+                <ul class="list-group mb-3">
+                    @foreach (var p in Model.Participants)
+                    {
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>@p.Name</span>
+
+                            @if (p.IsAgreed == true)
+                            {
+                                <span class="badge bg-success">Согласен</span>
+                            }
+                            else if (p.IsAgreed == false)
+                            {
+                                <span class="badge bg-danger">Отказался</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Создатель</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                @if (bestSlots != null && bestSlots.Any())
+                {
+                    <h5>Лучшие варианты времени:</h5>
+
+                    <ul class="list-group mb-3">
+                        @foreach (var slot in bestSlots)
+                        {
+                            <li class="list-group-item">
+                                <b>
+                                    @slot.StartUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                    —
+                                    @slot.EndUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                </b>
+
+                                <span class="text-muted ms-2">
+                                    (@slot.DurationMinutes мин)
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <div class="alert alert-warning">
+                        Подходящих интервалов не найдено
+                    </div>
+                }
+            }
+        }
 
         <form method="post" action="/Event/Calculate">
             <input type="hidden" name="id" value="@Model.Id" />
 
             <div class="d-flex justify-content-between">
-                <button type="submit" class="btn btn-success">
-                    Рассчитать оптимальное время
-                </button>
+                @if (Model.Status != EventStatus.Calculated)
+                {
+                    <button type="submit" class="btn btn-success">
+                        Рассчитать оптимальное время
+                    </button>
+                }
 
                 <a href="/Event/Cancel" class="btn btn-secondary">Отмена</a>
             </div>

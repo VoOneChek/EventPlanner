@@ -59,6 +59,7 @@
                 <a href="/Event/Cancel" class="btn btn-secondary">Отмена</a>
             </div>
 
+            @Html.ValidationSummary()
         </form>
     </div>
 </div>
@@ -73,22 +74,65 @@
     function addInterval() {
         const container = document.getElementById("flexibleContainer");
 
-        const intervalCount = container.children.length;
-
         const html = `
-            <div class="row mt-2 align-items-end interval-row">
+        <div class="interval-row border rounded p-2 mt-2">
+
+            <!-- Упрощённый ввод -->
+            <div class="simple-input row g-2 align-items-end">
                 <div class="col">
-                    <input type="datetime-local" name="flexibleStart" class="form-control" required />
+                    <label>Дата</label>
+                    <input type="date" class="form-control date-input" required>
                 </div>
+
                 <div class="col">
-                    <input type="datetime-local" name="flexibleEnd" class="form-control" required />
+                    <label>С</label>
+                    <input type="time" class="form-control time-start-input" required>
                 </div>
+
+                <div class="col">
+                    <label>До</label>
+                    <input type="time" class="form-control time-end-input" required>
+                </div>
+
+                <div class="col-auto">
+                    <button type="button" class="btn btn-outline-secondary" onclick="switchToDateTime(this)">
+                        Ввести датами
+                    </button>
+                </div>
+
                 <div class="col-auto">
                     <button type="button" class="btn btn-outline-danger" onclick="removeInterval(this)">
                         ✖
                     </button>
                 </div>
             </div>
+
+            <!-- Расширенный ввод -->
+            <div class="datetime-input row g-2 align-items-end mt-2" style="display:none;">
+                <div class="col">
+                    <label>Начало</label>
+                    <input type="datetime-local" name="flexibleStart" class="form-control">
+                </div>
+
+                <div class="col">
+                    <label>Окончание</label>
+                    <input type="datetime-local" name="flexibleEnd" class="form-control">
+                </div>
+
+                <div class="col-auto">
+                    <button type="button" class="btn btn-outline-secondary" onclick="switchToSimple(this)">
+                        Ввести по времени
+                    </button>
+                </div>
+
+                <div class="col-auto">
+                    <button type="button" class="btn btn-outline-danger" onclick="removeInterval(this)">
+                        ✖
+                    </button>
+                </div>
+            </div>
+
+        </div>
         `;
 
         container.insertAdjacentHTML("beforeend", html);
@@ -105,8 +149,75 @@
         button.closest(".interval-row").remove();
     }
 
+    function switchToDateTime(btn) {
+        const row = btn.closest(".interval-row");
+
+        const simple = row.querySelector(".simple-input");
+        const datetime = row.querySelector(".datetime-input");
+
+        simple.style.display = "none";
+        datetime.style.display = "flex";
+
+        simple.querySelectorAll("input").forEach(i => {
+            i.required = false;
+            i.disabled = true;
+        });
+
+        datetime.querySelectorAll("input").forEach(i => {
+            i.required = true;
+            i.disabled = false;
+        });
+    }
+
+    function switchToSimple(btn) {
+        const row = btn.closest(".interval-row");
+
+        const simple = row.querySelector(".simple-input");
+        const datetime = row.querySelector(".datetime-input");
+
+        datetime.style.display = "none";
+        simple.style.display = "flex";
+
+        datetime.querySelectorAll("input").forEach(i => {
+            i.required = false;
+            i.disabled = true;
+        });
+
+        simple.querySelectorAll("input").forEach(i => {
+            i.required = true;
+            i.disabled = false;
+        });
+    }
+
     function setOffsetBeforeSubmit() {
         var offset = new Date().getTimezoneOffset();
         document.getElementById('timezoneOffset').value = offset;
     }
+
+    document.querySelector("form").addEventListener("submit", function () {
+
+        document.querySelectorAll(".simple-input").forEach(block => {
+
+            const date = block.querySelector(".date-input").value;
+            const start = block.querySelector(".time-start-input").value;
+            const end = block.querySelector(".time-end-input").value;
+
+            if (date && start && end) {
+                const startDT = `${date}T${start}`;
+                const endDT = `${date}T${end}`;
+
+                const row = block.closest(".interval-row");
+                const startInput = row.querySelector(".datetime-input input[name='flexibleStart']");
+                const endInput = row.querySelector(".datetime-input input[name='flexibleEnd']");
+
+                if (startInput && endInput) {
+                    startInput.value = startDT;
+                    endInput.value = endDT;
+
+                    startInput.disabled = false;
+                    endInput.disabled = false;
+                }
+            }
+        });
+    });
 </script>

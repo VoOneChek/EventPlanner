@@ -1,5 +1,6 @@
 ﻿using EventPlannerWebApplication.Data;
 using EventPlannerWebApplication.Models;
+using EventPlannerWebApplication.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,10 +9,12 @@ namespace EventPlannerWebApplication.Controllers
     public class EventController: Controller
     {
         private readonly EventPlannerDbContext _context;
+        private readonly ISchedulingService _schedulingService;
 
-        public EventController(EventPlannerDbContext context)
+        public EventController(EventPlannerDbContext context, ISchedulingService schedulingService)
         {
             _context = context;
+            _schedulingService = schedulingService;
         }
 
         [HttpGet]
@@ -99,7 +102,7 @@ namespace EventPlannerWebApplication.Controllers
             _context.Events.Add(ev);
             _context.SaveChanges();
 
-            return RedirectToAction("Result", new { id = ev.Id });
+            return RedirectToAction("Result", new { code = ev.OwnerCode });
         }
 
 
@@ -168,7 +171,7 @@ namespace EventPlannerWebApplication.Controllers
                 return View("JoinEvent");
             }
             else
-                return RedirectToAction("Result", new { id = ev.Id });
+                return RedirectToAction("Result", new { code = ev.OwnerCode });
         }
 
         [HttpPost]
@@ -226,37 +229,38 @@ namespace EventPlannerWebApplication.Controllers
         }
 
         [HttpGet]
-        public IActionResult Result(int id)
+        public async Task<IActionResult> Result(string code)
         {
-            var ev = _context.Events
+            var ev = await _context.Events
                 .Include(e => e.Participants)
-                .FirstOrDefault(e => e.Id == id);
+                .FirstOrDefaultAsync(e => e.OwnerCode == code);
 
             if (ev == null)
                 return NotFound();
 
             var creator = ev.Participants.FirstOrDefault();
-
             ViewBag.CreatorName = creator?.Name ?? "Неизвестно";
+
+            if (ev.Status == EventStatus.Calculated && !ev.IsFixedDate)
+            {
+                var bestSlots = await _schedulingService.FindBestTimeSlotsAsync(ev.Id);
+                ViewBag.BestSlots = bestSlots;
+            }
 
             return View(ev);
         }
 
         [HttpPost]
-        public IActionResult Calculate(int id)
+        public async Task<IActionResult> Calculate(string code)
         {
-            var ev = _context.Events
-                .Include(e => e.Participants)
-                    .ThenInclude(p => p.AvailabilityIntervals)
-                .FirstOrDefault(e => e.Id == id);
-
+            var ev = await _context.Events.FirstOrDefaultAsync(e => e.OwnerCode == code);
             if (ev == null)
                 return NotFound();
 
             ev.Status = EventStatus.Calculated;
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
-            return RedirectToAction("Result", new { id = id });
+            return RedirectToAction("Result", new { code });
         }
 
         #region Private Validation Methods

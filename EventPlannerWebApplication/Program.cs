@@ -1,4 +1,5 @@
 using EventPlannerWebApplication.Data;
+using EventPlannerWebApplication.Services;
 using Microsoft.EntityFrameworkCore;
 using System;
 
@@ -17,6 +18,7 @@ builder.Services.AddDbContext<EventPlannerDbContext>(options =>
 
 builder.Services.AddSession();
 builder.Services.AddScoped<EmailService>();
+builder.Services.AddScoped<ISchedulingService, SchedulingService>();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
