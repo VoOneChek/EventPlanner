@@ -200,7 +200,7 @@ namespace EventPlannerWebApplication.Controllers
         public async Task<IActionResult> MyEvents()
         {
             var userId = HttpContext.Session.GetInt32("UserId");
-            if (userId == null) return RedirectToAction("Login", "Account");
+            if (userId == null) return RedirectToAction("Index", "Home");
 
             var events = await _eventService.GetUserEventsAsync(userId.Value);
             return View(events);
@@ -210,7 +210,7 @@ namespace EventPlannerWebApplication.Controllers
         public async Task<IActionResult> ClosedEvents()
         {
             var userId = HttpContext.Session.GetInt32("UserId");
-            if (userId == null) return RedirectToAction("Login", "Account");
+            if (userId == null) return RedirectToAction("Index", "Home");
 
             var events = await _eventService.GetUserEventsAsync(userId.Value, EventStatus.Closed);
             return View(events);
@@ -260,7 +260,7 @@ namespace EventPlannerWebApplication.Controllers
         public async Task<IActionResult> DeleteAllClosed()
         {
             var userId = HttpContext.Session.GetInt32("UserId");
-            if (userId == null) return RedirectToAction("Login", "Account");
+            if (userId == null) return RedirectToAction("Index", "Home");
 
             var events = await _eventService.GetUserEventsAsync(userId.Value, EventStatus.Closed);
 
